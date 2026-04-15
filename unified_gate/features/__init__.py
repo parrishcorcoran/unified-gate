@@ -63,10 +63,11 @@ FEATURE_NAMES: list[str] = (
 N_FEATURES = len(FEATURE_NAMES)  # 70
 
 
-def _boundary_ids(tokens, tokenizer=None, period_id=None, newline_id=None):
+def _boundary_ids(tokenizer=None, period_id=None, newline_id=None):
     """Return sets of token ids representing sentence-enders and newlines.
 
-    Preferred: pass a HF tokenizer via ``tokenizer`` so we scan full vocab.
+    Preferred: pass a HF tokenizer via ``tokenizer`` so we scan full vocab
+    (matches training pipeline exactly).
     Fallback: use single IDs ``period_id`` / ``newline_id``.
     """
     if tokenizer is not None:
@@ -95,6 +96,8 @@ def extract_all_features(
     tokenizer_newline_id: int = 198,
     *,
     tokenizer=None,
+    period_ids: set | None = None,
+    newline_ids: set | None = None,
     cluster_centers: np.ndarray | None = None,
 ) -> np.ndarray:
     """Extract all 70 features for one sequence.
@@ -124,10 +127,13 @@ def extract_all_features(
     valid = T - 2
     ts = np.arange(6, valid, dtype=np.int64)
 
-    period_ids, newline_ids = _boundary_ids(
-        tokens, tokenizer=tokenizer,
-        period_id=tokenizer_period_id, newline_id=tokenizer_newline_id,
-    )
+    if period_ids is None or newline_ids is None:
+        p_ids, n_ids = _boundary_ids(
+            tokenizer=tokenizer,
+            period_id=tokenizer_period_id, newline_id=tokenizer_newline_id,
+        )
+        period_ids = p_ids if period_ids is None else period_ids
+        newline_ids = n_ids if newline_ids is None else newline_ids
 
     # --- base 17 ---
     base_feat, _label, confs0, probs0 = build_base_features(

@@ -62,11 +62,52 @@ def frontier(scores, correct, targets=(0.85, 0.90, 0.95, 0.99)):
     return out
 
 
+def fit_training_cluster_centers(h29_train, K=32, subsample=20000, seed=0):
+    """Reproduce the training-time K-means centers exactly.
+
+    Concatenate hidden states from the first 20 training seqs, subsample, fit
+    K-means with 20 Lloyd iterations. This matches MedusaBitNet's
+    test_physics_apertures.py::aperture_cluster.
+    """
+    train_arr = np.concatenate(h29_train, axis=0).astype(np.float32)
+    rng = np.random.default_rng(seed)
+    sub = rng.choice(len(train_arr), size=min(subsample, len(train_arr)), replace=False)
+    kmeans_data = torch.from_numpy(train_arr[sub])
+    idx0 = rng.choice(len(kmeans_data), size=K, replace=False)
+    centers = kmeans_data[idx0].clone()
+    for _ in range(20):
+        dists = torch.cdist(kmeans_data, centers)
+        assigns = dists.argmin(dim=-1)
+        for k in range(K):
+            mask = assigns == k
+            if mask.sum() > 0:
+                centers[k] = kmeans_data[mask].mean(dim=0)
+    return centers.numpy()
+
+
+def build_boundary_sets(tokenizer_dir):
+    """Scan tokenizer vocab, return (period_ids, newline_ids) as sets."""
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained(tokenizer_dir)
+    V = tok.vocab_size
+    enders, newlines = set(), set()
+    for tid in range(V):
+        s = tok.decode([tid])
+        if "\n" in s:
+            newlines.add(tid)
+        stripped = s.strip()
+        if stripped and stripped[-1] in ".!?":
+            enders.add(tid)
+    return enders, newlines
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--medusabitnet-root", required=True, type=Path)
     p.add_argument("--gate", default=str(Path(__file__).resolve().parents[1] / "gate_k20.pt"))
     p.add_argument("--n-seqs", type=int, default=N_SEQS)
+    p.add_argument("--tokenizer-dir", default=None,
+                   help="Path to HF tokenizer; defaults to <root>/models/bitnet-b1.58-2B-4T")
     args = p.parse_args()
 
     root = args.medusabitnet_root
@@ -89,6 +130,14 @@ def main():
     h29_all = load_bf16_memmap(root / "data" / "hidden_gguf_v2.bin", args.n_seqs, SEQ_LEN, HIDDEN)
     h15_all = load_bf16_memmap(root / "data" / "hidden_gguf_layer15.bin", args.n_seqs, SEQ_LEN, HIDDEN)
     h5_all  = load_bf16_memmap(root / "data" / "hidden_gguf_layer5.bin", args.n_seqs, SEQ_LEN, HIDDEN)
+
+    print("  fitting K-means cluster centers on 20 training sequences...")
+    centers = fit_training_cluster_centers(h29_all[:20])
+
+    print("  scanning tokenizer vocab for sentence-boundary IDs...")
+    tokenizer_dir = args.tokenizer_dir or str(root / "models" / "bitnet-b1.58-2B-4T")
+    period_ids, newline_ids = build_boundary_sets(tokenizer_dir)
+    print(f"    |period_ids|={len(period_ids)}  |newline_ids|={len(newline_ids)}")
 
     print("Extracting features per sequence...")
     feats_test = []
@@ -117,6 +166,8 @@ def main():
             X = extract_all_features(
                 hidden_last=h_last, hidden_mid=h_mid, hidden_early=h_early,
                 head_logits=logits, lm_head=lm_head_np, tokens=tokens,
+                period_ids=period_ids, newline_ids=newline_ids,
+                cluster_centers=centers,
             )
             # labels correspond to ts = np.arange(6, SEQ_LEN - 2)
             ts = np.arange(6, SEQ_LEN - 2, dtype=np.int64)

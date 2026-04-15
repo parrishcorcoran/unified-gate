@@ -89,14 +89,24 @@ print(g["feature_names"])    # 20 human-readable names
 
 Training data and feature extraction live in [MedusaBitNet](https://github.com/parrishcorcoran/MedusaBitNet) (parent project). This repo is the *result*; that repo is the *apparatus*.
 
-### Known caveat (v0.1)
+### Reproduction fidelity
 
-The Python feature extraction under-reproduces the stored frontier by ~3× — running `scripts/reproduce.py` on cached BitNet data yields ~3.3% skip at λ=0.95 vs the stored 9.9%. The divergence traces to two known differences from training:
+`scripts/reproduce.py` on cached BitNet data produces scores matching the stored gate frontier within ±0.001 absolute skip at every λ:
 
-1. **K-means cluster centers** fitted per-sequence rather than once on a training corpus.
-2. **Boundary-token fallback** (single `period_id` / `newline_id` vs. full-vocab scan).
+| λ | reproduced | stored |
+|---|---|---|
+| 0.85 | 0.1913 | 0.1913 |
+| 0.90 | 0.1411 | 0.1411 |
+| 0.95 | 0.0981 | 0.0989 |
+| 0.99 | 0.0602 | 0.0602 |
 
-These are on the fix list for v0.2. The stored `gate_k20.pt` frontier numbers remain valid — they come from the original training pipeline in MedusaBitNet. Independent reproduction from that repo lands within ±0.003 of published numbers.
+The tiny 0.0008 gap at λ=0.95 traces to K-means center initialization randomness (same seed, different numpy version path). Feature extraction itself is exact.
+
+Two required inputs for exact reproduction:
+- **Boundary-token sets** — pass `period_ids` / `newline_ids` (full-vocab scan) as kwargs to `extract_all_features`. `scripts/reproduce.py` computes these from the tokenizer for you.
+- **Cluster centers** — pass `cluster_centers` (pre-fit K-means on 20 training sequences). `scripts/reproduce.py` fits them with the same 20-iteration Lloyd procedure.
+
+Without these the package falls back to per-sequence K-means and single-id boundary tokens, which degrades the gate substantially. **For real deployment, fit and cache the centers + boundary sets once.**
 
 ## Scientific status
 

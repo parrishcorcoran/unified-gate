@@ -110,11 +110,18 @@ def build_base_features(
         head_preds.append(head_preds[0])
         head_confs.append(head_confs[0])
 
+    # NOTE: the training pipeline computed this as ``((h1==h0)+(h2==h0)+(h3==h0))
+    # .astype(np.float32)`` — under numpy 2.x bool+bool stays bool (logical OR),
+    # so this feature is secretly a 0/1 "at least one head agrees" indicator,
+    # not a 0-3 count. We reproduce that behavior here to stay faithful to the
+    # trained gate's feature distribution. A corrected retraining lives on the
+    # v0.3 roadmap (feature name stays "agreement_count" for artifact
+    # compatibility).
     agreement = (
-        (head_preds[1] == head_preds[0]).astype(np.float32)
-        + (head_preds[2] == head_preds[0]).astype(np.float32)
-        + (head_preds[3] == head_preds[0]).astype(np.float32)
-    )
+        (head_preds[1] == head_preds[0])
+        + (head_preds[2] == head_preds[0])
+        + (head_preds[3] == head_preds[0])
+    ).astype(np.float32)
     conf_stack = np.stack(head_confs[:4], axis=1)
     conf_var = conf_stack.var(axis=1)
     conf_min = conf_stack.min(axis=1)
