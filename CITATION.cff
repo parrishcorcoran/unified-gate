@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "unified-gate: Confidence-gated adaptive LLM inference on a 7-dimensional boundary manifold"
+authors:
+  - family-names: Corcoran
+    given-names: Parrish
+license: MIT
+repository-code: "https://github.com/parrishcorcoran/unified-gate"
+url: "https://huggingface.co/parrishcorcoran/unified-gate"
+abstract: >
+  A confidence-gated adaptive LLM inference controller. Twenty physics-inspired features
+  feed a 64x64 MLP that decides per token whether to accept a cheap draft or run the
+  full backbone. Held-out on BitNet b1.58 2B: 10.6% skip at 95% fidelity, 14.1% skip at
+  90% fidelity, replicated across 5 random seeds. The per-sequence intrinsic dimension
+  of the per-token difficulty manifold is ~7 for both BitNet 2B and Llama 3.1 8B,
+  suggesting a model-agnostic physics ceiling for per-token decision-making.
+keywords:
+  - language-model
+  - inference-efficiency
+  - speculative-decoding
+  - medusa
+  - bitnet
+  - adaptive-compute
+  - intrinsic-dimension
+version: "0.2.0"
+date-released: 2026-04-15

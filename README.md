@@ -10,6 +10,8 @@ Autoregressive LLM inference runs the full backbone for every token — includin
 
 This repo is the controller.
 
+![k-sweep: engineering knee = physics ceiling](figures/k_sweep.png)
+
 - **20 physics-inspired features** (holographic, clustering, Ryu-Takayanagi layer-wise, token-reuse, free-energy) fed to a 64×64 MLP
 - Trained as a confidence-calibrated gate on Medusa head acceptance
 - Held-out measurement: **10.6% skip at 95% fidelity, 14.1% skip at 90% fidelity** on BitNet 2B
