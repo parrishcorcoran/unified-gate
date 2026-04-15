@@ -77,10 +77,26 @@ print(g["feature_names"])    # 20 human-readable names
 ├── THEORY.md              the six-framing thesis (holographic, electron cloud, etc.)
 ├── RESULTS.md             timestamped experimental log, latest first
 ├── gate_k20.pt            the deployment artifact
-└── scripts/               (reproducibility — point at upstream MedusaBitNet)
+├── pyproject.toml         pip install -e . for the Python package
+├── unified_gate/          Python reference implementation (alpha)
+│   ├── features/          70-feature extraction ported from MedusaBitNet
+│   └── gate.py            Gate class: load, score, skip_mask
+├── tests/test_smoke.py    synthetic-input API contract tests
+└── scripts/
+    ├── inspect_gate.py    print what's inside gate_k20.pt
+    └── reproduce.py       end-to-end on cached BitNet data (needs MedusaBitNet)
 ```
 
 Training data and feature extraction live in [MedusaBitNet](https://github.com/parrishcorcoran/MedusaBitNet) (parent project). This repo is the *result*; that repo is the *apparatus*.
+
+### Known caveat (v0.1)
+
+The Python feature extraction under-reproduces the stored frontier by ~3× — running `scripts/reproduce.py` on cached BitNet data yields ~3.3% skip at λ=0.95 vs the stored 9.9%. The divergence traces to two known differences from training:
+
+1. **K-means cluster centers** fitted per-sequence rather than once on a training corpus.
+2. **Boundary-token fallback** (single `period_id` / `newline_id` vs. full-vocab scan).
+
+These are on the fix list for v0.2. The stored `gate_k20.pt` frontier numbers remain valid — they come from the original training pipeline in MedusaBitNet. Independent reproduction from that repo lands within ±0.003 of published numbers.
 
 ## Scientific status
 
